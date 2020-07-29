@@ -79,7 +79,7 @@ type ParallelChecksumOptions struct {
 	PartSize    int64
 }
 
-// ParallelCRC32CChecksum a
+// ParallelCRC32CChecksum computes the crc32c checksum for a readerAt using parallelism
 func ParallelCRC32CChecksum(readerAt *io.ReaderAt, length int64, opts ParallelChecksumOptions) (uint32, error) {
 	numParts := length / opts.PartSize
 	lastPartSize := length % opts.PartSize

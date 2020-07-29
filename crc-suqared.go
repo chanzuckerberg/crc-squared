@@ -19,11 +19,12 @@ type options struct {
 	} `positional-args:"yes"`
 }
 
-func main() {
+// mainWork is a functional version of main that does all of the actual computation of main but can be easily tested
+func mainWork(args []string) (uint32, error) {
 	var opts options
-	_, err := flags.ParseArgs(&opts, os.Args[1:])
+	_, err := flags.ParseArgs(&opts, args)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	checksumOpts := crcsquared.ParallelChecksumOptions{
 		PartSize:    opts.PartSize,
@@ -32,7 +33,7 @@ func main() {
 
 	stats, err := os.Stat(opts.Positional.Filepath)
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 	length := stats.Size()
 
@@ -43,10 +44,14 @@ func main() {
 		readerAt, err = os.Open(opts.Positional.Filepath)
 	}
 	if err != nil {
-		panic(err)
+		return 0, err
 	}
 
-	checksum, err := crcsquared.ParallelCRC32CChecksum(&readerAt, length, checksumOpts)
+	return crcsquared.ParallelCRC32CChecksum(&readerAt, length, checksumOpts)
+}
+
+func main() {
+	checksum, err := mainWork(os.Args[1:])
 	if err != nil {
 		panic(err)
 	}
