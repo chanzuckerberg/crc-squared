@@ -35,6 +35,6 @@ jobs:
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       run: |
-        go test -coverprofile=coverage.txt -v
+        go test -coverprofile=coverage.txt -v ./...
         bash <(curl -s https://codecov.io/bash)
 
