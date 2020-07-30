@@ -179,3 +179,19 @@ func TestParallelCRC32CChecksumFileMmap(t *testing.T) {
 		t.Errorf("Expected parallel CRC32C Checksum to Equal %d %d", actualChecksum, expectedChecksum)
 	}
 }
+
+func TestParallelCRC32CChecksumFileNonExistent(t *testing.T) {
+	filename := string(dummyBytes(10, 9))
+	expectedMessage := fmt.Sprintf("stat %s: no such file or directory", filename)
+	_, err := ParallelCRC32CChecksumFile(filename, ParallelChecksumFileOptions{
+		Concurrency: 10,
+		PartSize:    10,
+	})
+	if err == nil {
+		t.Errorf("Expected ParallelCRC32CChecksumFile to error on non-existent file but it did not")
+		t.FailNow()
+	}
+	if err.Error() != expectedMessage {
+		t.Errorf("Expected ParallelCRC32CChecksumFile on non-existent file to error with message \"%s\" but the error message was \"%s\"", expectedMessage, err.Error())
+	}
+}
