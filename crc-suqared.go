@@ -2,13 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
 	"github.com/chanzuckerberg/crc-squared/crcsquared"
 	"github.com/jessevdk/go-flags"
-	"golang.org/x/exp/mmap"
 )
 
 type options struct {
@@ -31,28 +29,12 @@ func mainWork(args []string) (uint32, error) {
 		}
 		os.Exit(2)
 	}
-	checksumOpts := crcsquared.ParallelChecksumOptions{
+	checksumFileOpts := crcsquared.ParallelChecksumFileOptions{
 		PartSize:    opts.PartSize,
 		Concurrency: opts.Concurrency,
+		Mmap:        opts.Mmap,
 	}
-
-	stats, err := os.Stat(opts.Positional.Filepath)
-	if err != nil {
-		return 0, err
-	}
-	length := stats.Size()
-
-	var readerAt io.ReaderAt
-	if opts.Mmap {
-		readerAt, err = mmap.Open(opts.Positional.Filepath)
-	} else {
-		readerAt, err = os.Open(opts.Positional.Filepath)
-	}
-	if err != nil {
-		return 0, err
-	}
-
-	return crcsquared.ParallelCRC32CChecksum(&readerAt, length, checksumOpts)
+	return crcsquared.ParallelCRC32CChecksumFile(opts.Positional.Filepath, checksumFileOpts)
 }
 
 func main() {

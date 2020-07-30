@@ -3,9 +3,11 @@ package crcsquared
 import (
 	"hash/crc32"
 	"io"
+	"os"
 	"sync"
 
 	"github.com/vimeo/go-util/crc32combine"
+	"golang.org/x/exp/mmap"
 )
 
 // CRC32CChecksum computes the crc32c checksum of a file
@@ -80,7 +82,7 @@ type ParallelChecksumOptions struct {
 }
 
 // ParallelCRC32CChecksum computes the crc32c checksum for a readerAt using parallelism
-func ParallelCRC32CChecksum(readerAt *io.ReaderAt, length int64, opts ParallelChecksumOptions) (uint32, error) {
+func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChecksumOptions) (uint32, error) {
 	numParts := length / opts.PartSize
 	lastPartSize := length % opts.PartSize
 	if lastPartSize > 0 {
@@ -94,7 +96,7 @@ func ParallelCRC32CChecksum(readerAt *io.ReaderAt, length int64, opts ParallelCh
 	checksums := make([]uint32, numParts)
 
 	for w := 0; w < opts.Concurrency; w++ {
-		go checksumWorker(readerAt, partRanges, partChecksums)
+		go checksumWorker(&readerAt, partRanges, partChecksums)
 	}
 
 	for i := int64(0); i < numParts-1; i++ {
@@ -124,4 +126,37 @@ func ParallelCRC32CChecksum(readerAt *io.ReaderAt, length int64, opts ParallelCh
 	checksum := parallelCRCFuse(&checksums, numParts, opts.PartSize, length, lastPartSize)
 
 	return checksum, nil
+}
+
+// ParallelChecksumFileOptions are the options for running a parallelized checksum on a file
+type ParallelChecksumFileOptions struct {
+	Concurrency int
+	PartSize    int64
+	Mmap        bool
+}
+
+// ParallelCRC32CChecksumFile is a convenience function that opens a file and computes the crc32c checksum with ParallelCRC32CChecksum
+func ParallelCRC32CChecksumFile(filepath string, opts ParallelChecksumFileOptions) (uint32, error) {
+	stats, err := os.Stat(filepath)
+	if err != nil {
+		return 0, err
+	}
+	length := stats.Size()
+
+	var readerAt io.ReaderAt
+	if opts.Mmap {
+		readerAt, err = mmap.Open(filepath)
+	} else {
+		readerAt, err = os.Open(filepath)
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	parallelChecksumOptions := ParallelChecksumOptions{
+		Concurrency: opts.Concurrency,
+		PartSize:    opts.PartSize,
+	}
+
+	return ParallelCRC32CChecksum(readerAt, length, parallelChecksumOptions)
 }
