@@ -135,20 +135,26 @@ type ParallelChecksumFileOptions struct {
 	Mmap        bool
 }
 
+type readAtCloser interface {
+	io.ReaderAt
+	Close() error
+}
+
 // ParallelCRC32CChecksumFile is a convenience function that opens a file and computes the crc32c checksum with ParallelCRC32CChecksum
 func ParallelCRC32CChecksumFile(filepath string, opts ParallelChecksumFileOptions) (uint32, error) {
-	stats, err := os.Stat(filepath)
+	// This also ensures we don't crash with a segfault when opening a non-existent file with mmap
+	stat, err := os.Stat(filepath)
 	if err != nil {
 		return 0, err
 	}
-	length := stats.Size()
 
-	var readerAt io.ReaderAt
+	var f readAtCloser
 	if opts.Mmap {
-		readerAt, err = mmap.Open(filepath)
+		f, err = mmap.Open(filepath)
 	} else {
-		readerAt, err = os.Open(filepath)
+		f, err = os.Open(filepath)
 	}
+	defer f.Close()
 	if err != nil {
 		return 0, err
 	}
@@ -158,5 +164,5 @@ func ParallelCRC32CChecksumFile(filepath string, opts ParallelChecksumFileOption
 		PartSize:    opts.PartSize,
 	}
 
-	return ParallelCRC32CChecksum(readerAt, length, parallelChecksumOptions)
+	return ParallelCRC32CChecksum(f, stat.Size(), parallelChecksumOptions)
 }
