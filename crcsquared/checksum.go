@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"runtime"
-	"sort"
 
 	"github.com/vimeo/go-util/crc32combine"
 	"golang.org/x/exp/mmap"
@@ -61,6 +60,11 @@ type ParallelChecksumOptions struct {
 	PartSize    int64
 }
 
+type bufferNode struct {
+	Self partChecksum
+	Next *bufferNode
+}
+
 // ParallelCRC32CChecksum computes the crc32c checksum for a readerAt using parallelism
 func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChecksumOptions) (uint32, error) {
 	concurrency := opts.Concurrency
@@ -99,7 +103,7 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 
 	checksum := uint32(0)
 	end := int64(0)
-	var buffer []partChecksum
+	var buffer *bufferNode = nil
 
 	for i := int64(0); i < numParts; i++ {
 		p := <-partChecksums
@@ -113,20 +117,34 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 			continue
 		}
 
-		buffer = append(buffer, p)
-		sort.SliceStable(buffer, func(i int, j int) bool { return buffer[i].Start < buffer[j].Start })
+		if buffer == nil || p.Start < buffer.Self.Start {
+			buffer = &bufferNode{
+				Self: p,
+				Next: buffer,
+			}
+		} else {
+			current := buffer
+			for current.Next != nil && p.Start > current.Next.Self.Start {
+				current = current.Next
+			}
+			current.Next = &bufferNode{
+				Self: p,
+				Next: current.Next,
+			}
 
-		for len(buffer) > 0 && end == buffer[0].Start {
-			checksum = crc32combine.CRC32Combine(crc32.Castagnoli, checksum, buffer[0].Checksum, buffer[0].End-buffer[0].Start)
-			end = buffer[0].End
-			buffer = buffer[1:]
+		}
+
+		for buffer != nil && end == buffer.Self.Start {
+			checksum = crc32combine.CRC32Combine(crc32.Castagnoli, checksum, buffer.Self.Checksum, buffer.Self.End-buffer.Self.Start)
+			end = buffer.Self.End
+			buffer = buffer.Next
 		}
 	}
 
-	for len(buffer) > 0 && end == buffer[0].Start {
-		checksum = crc32combine.CRC32Combine(crc32.Castagnoli, checksum, buffer[0].Checksum, buffer[0].End-buffer[0].Start)
-		end = buffer[0].End
-		buffer = buffer[1:]
+	for buffer != nil && end == buffer.Self.Start {
+		checksum = crc32combine.CRC32Combine(crc32.Castagnoli, checksum, buffer.Self.Checksum, buffer.Self.End-buffer.Self.Start)
+		end = buffer.Self.End
+		buffer = buffer.Next
 	}
 
 	return checksum, nil
