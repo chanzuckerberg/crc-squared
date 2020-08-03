@@ -50,7 +50,6 @@ func TestCRC32CChecksum(t *testing.T) {
 	if checksum != expectedChecksum {
 		t.Errorf("Expected CRC32CChecksum(\"%s\") to equal %d; got %d", str, expectedChecksum, checksum)
 	}
-	fmt.Println(checksum)
 }
 
 func TestParallelCRC32CChecksum(t *testing.T) {
