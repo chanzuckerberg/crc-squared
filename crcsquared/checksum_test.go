@@ -73,7 +73,7 @@ func TestCRC32CChecksum(t *testing.T) {
 }
 
 func TestParallelCRC32CChecksum(t *testing.T) {
-	for concurrency := 1; concurrency < 20; concurrency += 3 {
+	for concurrency := 0; concurrency < 20; concurrency += 3 {
 		for partsize := int64(1); partsize < 2000; partsize *= 10 {
 			for length := int64(1); length < 5000; length *= 10 {
 				readerAt := newDummyReaderAt(length, 42)

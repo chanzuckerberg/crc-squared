@@ -10,11 +10,11 @@ import (
 )
 
 type options struct {
-	PartSize    int64 `short:"p" long:"part-size" description:"Part size in bytes" default:"1024"`
+	PartSize    int64 `short:"p" long:"part-size" description:"Part size in bytes" default:"1048576"`
 	Concurrency int   `short:"c" long:"concurrency" description:"Concurrency"`
 	Mmap        bool  `short:"m" long:"mmap" description:"Use mmap for downloads"`
 	Positional  struct {
-		Filepath string `description:"file path to checksum"`
+		Filepath string `description:"file path to checksum" required:"true"`
 	} `positional-args:"yes"`
 }
 
@@ -29,6 +29,7 @@ func mainWork(args []string) (uint32, error) {
 		}
 		os.Exit(2)
 	}
+
 	checksumFileOpts := crcsquared.ParallelChecksumFileOptions{
 		PartSize:    opts.PartSize,
 		Concurrency: opts.Concurrency,

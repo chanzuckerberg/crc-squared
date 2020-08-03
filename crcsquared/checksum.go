@@ -4,6 +4,7 @@ import (
 	"hash/crc32"
 	"io"
 	"os"
+	"runtime"
 	"sync"
 
 	"github.com/vimeo/go-util/crc32combine"
@@ -84,6 +85,11 @@ type ParallelChecksumOptions struct {
 
 // ParallelCRC32CChecksum computes the crc32c checksum for a readerAt using parallelism
 func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChecksumOptions) (uint32, error) {
+	concurrency := opts.Concurrency
+	if concurrency == 0 {
+		concurrency = runtime.NumCPU()
+	}
+
 	numParts := length / opts.PartSize
 	lastPartSize := length % opts.PartSize
 	if lastPartSize > 0 {
@@ -96,7 +102,7 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 	partChecksums := make(chan partChecksum, numParts)
 	checksums := make([]uint32, numParts)
 
-	for w := 0; w < opts.Concurrency; w++ {
+	for w := 0; w < concurrency; w++ {
 		go checksumWorker(&readerAt, partRanges, partChecksums)
 	}
 
