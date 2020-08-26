@@ -29,7 +29,7 @@ Download and install the `.deb`:
 ```bash
 RELEASES=chanzuckerberg/crc-squared/releases
 VERSION=$(curl https://api.github.com/repos/${RELEASES}/latest | jq -r .name | sed s/^v//)
-DOWNLOAD=$(crc-squared_${VERSION}_linux_amd64.deb)
+DOWNLOAD=crc-squared_${VERSION}_linux_amd64.deb
 curl -L https://github.com/${RELEASES}/download/v${VERSION}/${DOWNLOAD} -o crc-squared.deb
 sudo dpkg -i crc-squared.deb
 rm crc-squared.deb
@@ -42,7 +42,7 @@ Download and install the `.rpm`:
 ```bash
 RELEASES=chanzuckerberg/crc-squared/releases
 VERSION=$(curl https://api.github.com/repos/${RELEASES}/latest | jq -r .name | sed s/^v//)
-DOWNLOAD=$(crc-squared_${VERSION}_linux_amd64.rom)
+DOWNLOAD=crc-squared_${VERSION}_linux_amd64.rpm
 curl -L https://github.com/${RELEASES}/download/v${VERSION}/${DOWNLOAD} -o crc-squared.rpm
 sudo rpm -i crc-squared.rpm
 rm crc-squared.rpm
