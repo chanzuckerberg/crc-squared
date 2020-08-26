@@ -57,6 +57,13 @@ func (t tempfile) Cleanup() error {
 	return os.Remove(filepath)
 }
 
+func (t tempfile) CleanupWarn() {
+	err := t.Cleanup()
+	if err != nil {
+		os.Stderr.WriteString(fmt.Sprintf("tempfile %s not deleted", t.f.Name()))
+	}
+}
+
 func TestCRC32CChecksum(t *testing.T) {
 	str := "sample bytes"
 	bytes := []byte(str)
@@ -107,7 +114,7 @@ func TestParallelCRC32CChecksumFile(t *testing.T) {
 		t.Errorf("Creating temporary file for parallel checksum errored with %s", err)
 		t.FailNow()
 	}
-	defer tmp.Cleanup()
+	defer tmp.CleanupWarn()
 
 	bytes := dummyBytes(5000, 88)
 	n, err := tmp.f.Write(bytes)
@@ -146,7 +153,7 @@ func TestParallelCRC32CChecksumFileMmap(t *testing.T) {
 		t.Errorf("Creating temporary file for parallel checksum errored with %s", err)
 		t.FailNow()
 	}
-	defer tmp.Cleanup()
+	defer tmp.CleanupWarn()
 
 	bytes := dummyBytes(5000, 88)
 	n, err := tmp.f.Write(bytes)
