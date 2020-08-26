@@ -20,7 +20,58 @@ This repo is currently in its infancy. I currently wouldn't recommend you use it
 
 ## Installation
 
-To install clone the repo and build with `go build`.
+### Linux
+
+#### Debian (Ubuntu/Mint)
+
+Download and install the `.deb`:
+
+```bash
+RELEASES=chanzuckerberg/crc-squared/releases
+VERSION=$(curl https://api.github.com/repos/${RELEASES}/latest | jq -r .name | sed s/^v//)
+DOWNLOAD=$(crc-squared_${VERSION}_linux_amd64.deb)
+curl -L https://github.com/${RELEASES}/download/v${VERSION}/${DOWNLOAD} -o crc-squared.deb
+sudo dpkg -i crc-squared.deb
+rm crc-squared.deb
+```
+
+#### Fedora (RHEL/CentOS)
+
+Download and install the `.rpm`:
+
+```bash
+RELEASES=chanzuckerberg/crc-squared/releases
+VERSION=$(curl https://api.github.com/repos/${RELEASES}/latest | jq -r .name | sed s/^v//)
+DOWNLOAD=$(crc-squared_${VERSION}_linux_amd64.rom)
+curl -L https://github.com/${RELEASES}/download/v${VERSION}/${DOWNLOAD} -o crc-squared.rpm
+sudo rpm -i crc-squared.rpm
+rm crc-squared.rpm
+```
+
+### MacOS
+
+Install via homebrew:
+
+```bash
+brew tap chanzuckerberg/tap
+brew install crc-squared
+```
+
+### Binary
+
+Download the appropriate binary for your platform:
+
+```bash
+RELEASES=chanzuckerberg/crc-squared/releases
+PLATFORM=#linux,darwin,windows
+VERSION=$(curl https://api.github.com/repos/${RELEASES}/latest | jq -r .name | sed s/^v//)
+DOWNLOAD=crc-squared_${VERSION}_${PLATFORM}_amd64.tar.gz
+curl -L https://github.com/${RELEASES}/download/v${VERSION}/${DOWNLOAD} | tar zx
+```
+
+### Windows
+
+Follow instructions for binary, with `windows`.
 
 ## Usage
 
