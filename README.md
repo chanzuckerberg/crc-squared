@@ -1,7 +1,5 @@
 # crc-squared [![Latest Version](https://img.shields.io/github/release/chanzuckerberg/crc-squared.svg?style=flat?maxAge=86400)](https://github.com/chanzuckerberg/crc-squared/releases) ![Check](https://github.com/chanzuckerberg/crc-squared/workflows/Check/badge.svg) [![codecov](https://codecov.io/gh/chanzuckerberg/crc-squared/branch/master/graph/badge.svg)](https://codecov.io/gh/chanzuckerberg/crc-squared) [![GitHub license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://github.com/chanzuckerberg/idseq-web/blob/master/LICENSE) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
-
-
 crc-squared is a CLI and library for computing crc-32c checksums fast. The performance is achieved by:
 
 - Parallelism
