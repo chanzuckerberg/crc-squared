@@ -1,0 +1,61 @@
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+- env:
+  - CGO_ENABLED=0
+  goos:
+    - darwin
+    - linux
+  goarch:
+    - amd64
+
+release:
+  prerelease: false
+
+archives:
+  - files:
+    - LICENSE
+    - README.md
+    - completions/**/*
+
+brews:
+- description: "Copy large files to, from, and between s3 buckets with parallelism"
+  tap:
+    owner: chanzuckerberg
+    name: homebrew-tap
+    token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+  homepage: "https://github.com/chanzuckerberg/crc-squared"
+  test: system "#{bin}/crc-squared --version"
+  install: |
+    bin.install "crc-squared"
+    bash_completion.install "completions/bash" => "crc-squared"
+    zsh_completion.install "completions/zsh" => "_crc-squared"
+
+nfpms:
+  - 
+    vendor: chanzuckerberg
+    maintainer: Todd Morse <todd@morsecodist.io>
+    homepage: "https://github.com/chanzuckerberg/crc-squared"
+    description: "Copy large files to, from, and between s3 buckets with parallelism"
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    files:
+      "completions/bash": "/etc/bash_completion.d/crc-squared"
+      "completions/zsh": "/usr/share/zsh/functions/Completion/_crc-squared"
+
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+    - "^docs:"
+    - "^test:"

@@ -1,0 +1,9 @@
+#compdef _crc-squared crc-squared
+
+_crc-squared() {
+    local -a completions
+    args=("${words[@]:1}")
+    local IFS=$'\n'
+    completions=($(GO_FLAGS_COMPLETION=1 ${words[1]} "${args[@]}"))
+    compadd -a completions
+}
