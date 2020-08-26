@@ -1,6 +1,4 @@
-# crc-squared
-
-[![codecov](https://codecov.io/gh/chanzuckerberg/crc-squared/branch/master/graph/badge.svg)](https://codecov.io/gh/chanzuckerberg/crc-squared)
+# crc-squared [![Latest Version](https://img.shields.io/github/release/chanzuckerberg/crc-squared.svg?style=flat?maxAge=86400)](https://github.com/chanzuckerberg/crc-squared/releases) ![Check](https://github.com/chanzuckerberg/crc-squared/workflows/Check/badge.svg) [![codecov](https://codecov.io/gh/chanzuckerberg/crc-squared/branch/master/graph/badge.svg)](https://codecov.io/gh/chanzuckerberg/crc-squared) [![GitHub license](https://img.shields.io/badge/license-MIT-brightgreen.svg)](https://github.com/chanzuckerberg/idseq-web/blob/master/LICENSE) ![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
 crc-squared is a CLI and library for computing crc-32c checksums fast. The performance is achieved by:
 
@@ -15,7 +13,6 @@ This repo is currently in its infancy. I currently wouldn't recommend you use it
 - **Benchmarking**
 - **Improving the parallelization**: The current algorithm reaps a lot of the benefits of parallelism but there are some bottlenecks I could remove
 - **Documentation**
-- **Release Process**
 - **Removing the length requirement**: Currently you need to know the length of what you want to checksum in advance. Ideally I would rework this so you could use just `io.ReaderAt`.
 
 ## Installation
