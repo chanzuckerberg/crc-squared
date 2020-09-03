@@ -180,21 +180,12 @@ func Benchmark(t *testing.B) {
 		t.Fatalf("Writing sample bytes to file errored with: %s", err)
 	}
 
-	expectedChecksum, err := CRC32CChecksum(bytes)
-	if err != nil {
-		t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
-	}
-
-	actualChecksum, err := ParallelCRC32CChecksumFile(tmp.Name(), ParallelChecksumFileOptions{
+	_, err = ParallelCRC32CChecksumFile(tmp.Name(), ParallelChecksumFileOptions{
 		Concurrency: 10,
 		PartSize:    10,
 	})
 
 	if err != nil {
 		t.Fatalf("ParallelCRC32CChecksum errored with %s", err)
-	}
-
-	if actualChecksum != expectedChecksum {
-		t.Errorf("Expected parallel CRC32C Checksum to Equal %d %d", actualChecksum, expectedChecksum)
 	}
 }
