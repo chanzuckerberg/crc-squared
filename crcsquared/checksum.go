@@ -1,11 +1,11 @@
 package crcsquared
 
 import (
+	"errors"
 	"hash/crc32"
 	"io"
 	"os"
 	"runtime"
-	"sync"
 
 	"github.com/vimeo/go-util/crc32combine"
 	"golang.org/x/exp/mmap"
@@ -15,19 +15,19 @@ import (
 //   I stepped though the code to verify
 var crc32q *crc32.Table = crc32.MakeTable(crc32.Castagnoli)
 
-// CRC32CChecksum computes the crc32c checksum of a file
-func CRC32CChecksum(data []byte) (uint32, error) {
-	return crc32.Checksum(data, crc32q), nil
+// CRC32CChecksum computes the crc32c checksum of some data
+func CRC32CChecksum(data []byte) uint32 {
+	return crc32.Checksum(data, crc32q)
 }
 
 type partRange struct {
-	Chunk int64
 	Start int64
 	End   int64
 }
 
 type partChecksum struct {
-	Chunk    int64
+	Start    int64
+	End      int64
 	Checksum uint32
 	Error    error
 }
@@ -36,51 +36,75 @@ func checksumWorker(readerAt *io.ReaderAt, partRanges <-chan partRange, checksum
 	for partRange := range partRanges {
 		data := make([]byte, partRange.End-partRange.Start)
 		_, err := (*readerAt).ReadAt(data, partRange.Start)
-		if err != nil {
-			checksums <- partChecksum{
-				Chunk:    partRange.Chunk,
-				Checksum: 0,
-				Error:    err,
-			}
-		} else {
-			checksum, err := CRC32CChecksum(data)
-			checksums <- partChecksum{
-				Chunk:    partRange.Chunk,
-				Checksum: checksum,
-				Error:    err,
-			}
+		checksums <- partChecksum{
+			Start:    partRange.Start,
+			End:      partRange.End,
+			Checksum: CRC32CChecksum(data),
+			Error:    err,
 		}
 	}
-}
-
-func parallelCRCFuse(checksums *[]uint32, numParts, partSize, length, lastPartSize int64) uint32 {
-	nextPower := numParts << 1
-	for n := int64(1); n < nextPower; n <<= 1 {
-		var wg sync.WaitGroup
-
-		for i := int64(0); i+n < numParts; i += 2 * n {
-			wg.Add(1)
-			go func(i int64) {
-				len2 := partSize * n
-				prevLen := (i + n) * partSize
-				if len2+prevLen > length {
-					len2 = length - prevLen
-				} else if i+n == numParts-n {
-					len2 -= (partSize - lastPartSize)
-				}
-				(*checksums)[i] = crc32combine.CRC32Combine(crc32.Castagnoli, (*checksums)[i], (*checksums)[i+n], len2)
-				wg.Done()
-			}(i)
-		}
-		wg.Wait()
-	}
-	return (*checksums)[0]
 }
 
 // ParallelChecksumOptions are the options for running a parallelized checksum
 type ParallelChecksumOptions struct {
 	Concurrency int
 	PartSize    int64
+}
+
+type partChecksumbufferNode struct {
+	Self partChecksum
+	Next *partChecksumbufferNode
+}
+
+// partChecksumBuffer holds a linked list of part checksums, ordered by the end of each part
+type partChecksumBuffer struct {
+	Head *partChecksumbufferNode
+}
+
+// AddInOrder adds a part checksum to the buffer in order, ordered by the end of each part
+func (buff *partChecksumBuffer) AddInOrder(p partChecksum) {
+	if buff.Head == nil || buff.Head.Self.End > p.End {
+		buff.Head = &partChecksumbufferNode{
+			Self: p,
+			Next: buff.Head,
+		}
+		return
+	}
+
+	current := buff.Head
+	for current.Next != nil && p.End > current.Next.Self.End {
+		current = current.Next
+	}
+
+	current.Next = &partChecksumbufferNode{
+		Self: p,
+		Next: current.Next,
+	}
+}
+
+// FuseAdjacentChecksums fuses all adjacent  part checksums in the buffer the resulting buffer will be maximally combined
+func (buff *partChecksumBuffer) FuseAdjacentChecksums() {
+	for current := buff.Head; current != nil && current.Next != nil; {
+		next := current.Next
+		if current.Self.End == current.Next.Self.Start {
+			current.Self.Checksum = crc32combine.CRC32Combine(crc32.Castagnoli, current.Self.Checksum, next.Self.Checksum, next.Self.End-next.Self.Start)
+			current.Self.End = next.Self.End
+			current.Next = next.Next
+		} else {
+			current = current.Next
+		}
+	}
+}
+
+// FinalChecksum returns the checksum of the head of the buffer if the head exists and is the only element, otherwise it returns an error
+func (buff *partChecksumBuffer) FinalChecksum() (uint32, error) {
+	if buff.Head == nil {
+		return 0, errors.New("no partial checksums added to buffer")
+	}
+	if buff.Head.Next != nil {
+		return 0, errors.New("unfused partial checksums still in buffer")
+	}
+	return buff.Head.Self.Checksum, nil
 }
 
 // ParallelCRC32CChecksum computes the crc32c checksum for a readerAt using parallelism
@@ -91,16 +115,12 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 	}
 
 	numParts := length / opts.PartSize
-	lastPartSize := length % opts.PartSize
-	if lastPartSize > 0 {
+	if length%opts.PartSize > 0 {
 		numParts++
-	} else {
-		lastPartSize = opts.PartSize
 	}
 
 	partRanges := make(chan partRange, numParts)
 	partChecksums := make(chan partChecksum, numParts)
-	checksums := make([]uint32, numParts)
 
 	for w := 0; w < concurrency; w++ {
 		go checksumWorker(&readerAt, partRanges, partChecksums)
@@ -108,31 +128,32 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 
 	for i := int64(0); i < numParts-1; i++ {
 		partRanges <- partRange{
-			Chunk: i,
 			Start: i * opts.PartSize,
 			End:   (i + 1) * opts.PartSize,
 		}
 	}
 
 	partRanges <- partRange{
-		Chunk: numParts - 1,
 		Start: (numParts - 1) * opts.PartSize,
 		End:   length,
 	}
 
 	close(partRanges)
 
+	// The big idea behind this algorithm is to do as much fusion as possible as soon as possible
+	// As long as the algorithm is computing checksums the time to fuse checksums is free. Things
+	// only slow down when we fuse checksums after we are done computing all of them. To cut down
+	// the number of fusions performed after checksums this algorithm performs as many fusions as
+	// possible after each checksum is computed. The checksums are computed roughly in order so
+	// adjacent checksums will likely finish close together. This spreads out the fusion work in
+	// the average case.
+	var buffer partChecksumBuffer
 	for i := int64(0); i < numParts; i++ {
-		partChecksum := <-partChecksums
-		if partChecksum.Error != nil {
-			return 0, partChecksum.Error
-		}
-		checksums[partChecksum.Chunk] = partChecksum.Checksum
+		buffer.AddInOrder(<-partChecksums)
+		buffer.FuseAdjacentChecksums()
 	}
 
-	checksum := parallelCRCFuse(&checksums, numParts, opts.PartSize, length, lastPartSize)
-
-	return checksum, nil
+	return buffer.FinalChecksum()
 }
 
 // ParallelChecksumFileOptions are the options for running a parallelized checksum on a file
