@@ -42,10 +42,7 @@ func TestCRC32CChecksum(t *testing.T) {
 	str := "sample bytes"
 	bytes := []byte(str)
 	expectedChecksum := uint32(1168601409)
-	checksum, err := CRC32CChecksum(bytes)
-	if err != nil {
-		t.Errorf("Expected error to be nil; got %s", err)
-	}
+	checksum := CRC32CChecksum(bytes)
 
 	if checksum != expectedChecksum {
 		t.Errorf("Expected CRC32CChecksum(\"%s\") to equal %d; got %d", str, expectedChecksum, checksum)
@@ -57,10 +54,7 @@ func TestParallelCRC32CChecksum(t *testing.T) {
 		for partsize := int64(1); partsize < 2000; partsize *= 10 {
 			for length := int64(1); length < 5000; length *= 10 {
 				readerAt := newDummyReaderAt(length, 42)
-				expectedChecksum, err := CRC32CChecksum([]byte(readerAt.data))
-				if err != nil {
-					t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
-				}
+				expectedChecksum := CRC32CChecksum([]byte(readerAt.data))
 
 				actualChecksum, err := ParallelCRC32CChecksum(readerAt, readerAt.Size(), ParallelChecksumOptions{
 					Concurrency: concurrency,
@@ -95,11 +89,7 @@ func TestParallelCRC32CChecksumFile(t *testing.T) {
 		t.Fatalf("Writing sample bytes to file errored with: %s", err)
 	}
 
-	expectedChecksum, err := CRC32CChecksum(bytes)
-	if err != nil {
-		t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
-	}
-
+	expectedChecksum := CRC32CChecksum(bytes)
 	actualChecksum, err := ParallelCRC32CChecksumFile(tmp.Name(), ParallelChecksumFileOptions{
 		Concurrency: 10,
 		PartSize:    10,
@@ -129,11 +119,7 @@ func TestParallelCRC32CChecksumFileMmap(t *testing.T) {
 		t.Fatalf("Writing sample bytes to file errored with: %s", err)
 	}
 
-	expectedChecksum, err := CRC32CChecksum(bytes)
-	if err != nil {
-		t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
-	}
-
+	expectedChecksum := CRC32CChecksum(bytes)
 	actualChecksum, err := ParallelCRC32CChecksumFile(tmp.Name(), ParallelChecksumFileOptions{
 		Concurrency: 10,
 		PartSize:    10,

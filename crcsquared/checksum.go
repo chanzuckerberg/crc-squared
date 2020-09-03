@@ -1,6 +1,7 @@
 package crcsquared
 
 import (
+	"errors"
 	"hash/crc32"
 	"io"
 	"os"
@@ -14,9 +15,9 @@ import (
 //   I stepped though the code to verify
 var crc32q *crc32.Table = crc32.MakeTable(crc32.Castagnoli)
 
-// CRC32CChecksum computes the crc32c checksum of a file
-func CRC32CChecksum(data []byte) (uint32, error) {
-	return crc32.Checksum(data, crc32q), nil
+// CRC32CChecksum computes the crc32c checksum of some data
+func CRC32CChecksum(data []byte) uint32 {
+	return crc32.Checksum(data, crc32q)
 }
 
 type partRange struct {
@@ -35,21 +36,11 @@ func checksumWorker(readerAt *io.ReaderAt, partRanges <-chan partRange, checksum
 	for partRange := range partRanges {
 		data := make([]byte, partRange.End-partRange.Start)
 		_, err := (*readerAt).ReadAt(data, partRange.Start)
-		if err != nil {
-			checksums <- partChecksum{
-				Start:    partRange.Start,
-				End:      partRange.End,
-				Checksum: 0,
-				Error:    err,
-			}
-		} else {
-			checksum, err := CRC32CChecksum(data)
-			checksums <- partChecksum{
-				Start:    partRange.Start,
-				End:      partRange.End,
-				Checksum: checksum,
-				Error:    err,
-			}
+		checksums <- partChecksum{
+			Start:    partRange.Start,
+			End:      partRange.End,
+			Checksum: CRC32CChecksum(data),
+			Error:    err,
 		}
 	}
 }
@@ -60,9 +51,60 @@ type ParallelChecksumOptions struct {
 	PartSize    int64
 }
 
-type bufferNode struct {
+type partChecksumbufferNode struct {
 	Self partChecksum
-	Next *bufferNode
+	Next *partChecksumbufferNode
+}
+
+// partChecksumBuffer holds a linked list of part checksums, ordered by the end of each part
+type partChecksumBuffer struct {
+	Head *partChecksumbufferNode
+}
+
+// AddInOrder adds a part checksum to the buffer in order, ordered by the end of each part
+func (buff *partChecksumBuffer) AddInOrder(p partChecksum) {
+	if buff.Head == nil || buff.Head.Self.End > p.End {
+		buff.Head = &partChecksumbufferNode{
+			Self: p,
+			Next: buff.Head,
+		}
+		return
+	}
+
+	current := buff.Head
+	for current.Next != nil && p.End > current.Next.Self.End {
+		current = current.Next
+	}
+
+	current.Next = &partChecksumbufferNode{
+		Self: p,
+		Next: current.Next,
+	}
+}
+
+// FuseAdjacentChecksums fuses all adjacent  part checksums in the buffer the resulting buffer will be maximally combined
+func (buff *partChecksumBuffer) FuseAdjacentChecksums() {
+	for current := buff.Head; current != nil && current.Next != nil; {
+		next := current.Next
+		if current.Self.End == current.Next.Self.Start {
+			current.Self.Checksum = crc32combine.CRC32Combine(crc32.Castagnoli, current.Self.Checksum, next.Self.Checksum, next.Self.End-next.Self.Start)
+			current.Self.End = next.Self.End
+			current.Next = next.Next
+		} else {
+			current = current.Next
+		}
+	}
+}
+
+// FinalChecksum returns the checksum of the head of the buffer if the head exists and is the only element, otherwise it returns an error
+func (buff *partChecksumBuffer) FinalChecksum() (uint32, error) {
+	if buff.Head == nil {
+		return 0, errors.New("no partial checksums added to buffer")
+	}
+	if buff.Head.Next != nil {
+		return 0, errors.New("unfused partial checksums still in buffer")
+	}
+	return buff.Head.Self.Checksum, nil
 }
 
 // ParallelCRC32CChecksum computes the crc32c checksum for a readerAt using parallelism
@@ -101,53 +143,20 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 
 	close(partRanges)
 
-	checksum := uint32(0)
-	end := int64(0)
-	var buffer *bufferNode = nil
-
+	// The big idea behind this algorithm is to do as much fusion as possible as soon as possible
+	// As long as the algorithm is computing checksums the time to fuse checksums is free. Things
+	// only slow down when we fuse checksums after we are done computing all of them. To cut down
+	// the number of fusions performed after checksums this algorithm performs as many fusions as
+	// possible after each checksum is computed. The checksums are computed roughly in order so
+	// adjacent checksums will likely finish close together. This spreads out the fusion work in
+	// the average case.
+	var buffer partChecksumBuffer
 	for i := int64(0); i < numParts; i++ {
-		p := <-partChecksums
-		if p.Error != nil {
-			return 0, p.Error
-		}
-
-		if p.Start == 0 {
-			checksum = p.Checksum
-			end = p.End
-			continue
-		}
-
-		if buffer == nil || p.Start < buffer.Self.Start {
-			buffer = &bufferNode{
-				Self: p,
-				Next: buffer,
-			}
-		} else {
-			current := buffer
-			for current.Next != nil && p.Start > current.Next.Self.Start {
-				current = current.Next
-			}
-			current.Next = &bufferNode{
-				Self: p,
-				Next: current.Next,
-			}
-
-		}
-
-		for buffer != nil && end == buffer.Self.Start {
-			checksum = crc32combine.CRC32Combine(crc32.Castagnoli, checksum, buffer.Self.Checksum, buffer.Self.End-buffer.Self.Start)
-			end = buffer.Self.End
-			buffer = buffer.Next
-		}
+		buffer.AddInOrder(<-partChecksums)
+		buffer.FuseAdjacentChecksums()
 	}
 
-	for buffer != nil && end == buffer.Self.Start {
-		checksum = crc32combine.CRC32Combine(crc32.Castagnoli, checksum, buffer.Self.Checksum, buffer.Self.End-buffer.Self.Start)
-		end = buffer.Self.End
-		buffer = buffer.Next
-	}
-
-	return checksum, nil
+	return buffer.FinalChecksum()
 }
 
 // ParallelChecksumFileOptions are the options for running a parallelized checksum on a file
