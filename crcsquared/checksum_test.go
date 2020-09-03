@@ -60,8 +60,7 @@ func TestParallelCRC32CChecksum(t *testing.T) {
 				readerAt := newDummyReaderAt(length, 42)
 				expectedChecksum, err := CRC32CChecksum([]byte(readerAt.data))
 				if err != nil {
-					t.Errorf("Computing in-memory checksum for comparison errored with: %s", err)
-					t.FailNow()
+					t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
 				}
 
 				actualChecksum, err := ParallelCRC32CChecksum(readerAt, readerAt.Size(), ParallelChecksumOptions{
@@ -70,8 +69,7 @@ func TestParallelCRC32CChecksum(t *testing.T) {
 				})
 
 				if err != nil {
-					t.Errorf("ParallelCRC32CChecksum errored with %s", err)
-					t.FailNow()
+					t.Fatalf("ParallelCRC32CChecksum errored with %s", err)
 				}
 
 				if actualChecksum != expectedChecksum {
@@ -85,26 +83,22 @@ func TestParallelCRC32CChecksum(t *testing.T) {
 func TestParallelCRC32CChecksumFile(t *testing.T) {
 	tmp, err := ioutil.TempFile("/tmp", "crc-squared-")
 	if err != nil {
-		t.Errorf("Creating temporary file for parallel checksum errored with %s", err)
-		t.FailNow()
+		t.Fatalf("Creating temporary file for parallel checksum errored with %s", err)
 	}
 	defer os.Remove(tmp.Name())
 
 	bytes := dummyBytes(5000, 88)
 	n, err := tmp.Write(bytes)
 	if n != len(bytes) {
-		t.Errorf("Didn't write all sample bytes to file wanted %d, got %d", len(bytes), n)
-		t.FailNow()
+		t.Fatalf("Didn't write all sample bytes to file wanted %d, got %d", len(bytes), n)
 	}
 	if err != nil {
-		t.Errorf("Writing sample bytes to file errored with: %s", err)
-		t.FailNow()
+		t.Fatalf("Writing sample bytes to file errored with: %s", err)
 	}
 
 	expectedChecksum, err := CRC32CChecksum(bytes)
 	if err != nil {
-		t.Errorf("Computing in-memory checksum for comparison errored with: %s", err)
-		t.FailNow()
+		t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
 	}
 
 	actualChecksum, err := ParallelCRC32CChecksumFile(tmp.Name(), ParallelChecksumFileOptions{
@@ -112,8 +106,7 @@ func TestParallelCRC32CChecksumFile(t *testing.T) {
 		PartSize:    10,
 	})
 	if err != nil {
-		t.Errorf("ParallelCRC32CChecksum errored with %s", err)
-		t.FailNow()
+		t.Fatalf("ParallelCRC32CChecksum errored with %s", err)
 	}
 
 	if actualChecksum != expectedChecksum {
@@ -124,26 +117,22 @@ func TestParallelCRC32CChecksumFile(t *testing.T) {
 func TestParallelCRC32CChecksumFileMmap(t *testing.T) {
 	tmp, err := ioutil.TempFile("/tmp", "crc-squared-")
 	if err != nil {
-		t.Errorf("Creating temporary file for parallel checksum errored with %s", err)
-		t.FailNow()
+		t.Fatalf("Creating temporary file for parallel checksum errored with %s", err)
 	}
 	defer os.Remove(tmp.Name())
 
 	bytes := dummyBytes(5000, 88)
 	n, err := tmp.Write(bytes)
 	if n != len(bytes) {
-		t.Errorf("Didn't write all sample bytes to file wanted %d, got %d", len(bytes), n)
-		t.FailNow()
+		t.Fatalf("Didn't write all sample bytes to file wanted %d, got %d", len(bytes), n)
 	}
 	if err != nil {
-		t.Errorf("Writing sample bytes to file errored with: %s", err)
-		t.FailNow()
+		t.Fatalf("Writing sample bytes to file errored with: %s", err)
 	}
 
 	expectedChecksum, err := CRC32CChecksum(bytes)
 	if err != nil {
-		t.Errorf("Computing in-memory checksum for comparison errored with: %s", err)
-		t.FailNow()
+		t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
 	}
 
 	actualChecksum, err := ParallelCRC32CChecksumFile(tmp.Name(), ParallelChecksumFileOptions{
@@ -152,8 +141,7 @@ func TestParallelCRC32CChecksumFileMmap(t *testing.T) {
 		Mmap:        true,
 	})
 	if err != nil {
-		t.Errorf("ParallelCRC32CChecksum errored with %s", err)
-		t.FailNow()
+		t.Fatalf("ParallelCRC32CChecksum errored with %s", err)
 	}
 
 	if actualChecksum != expectedChecksum {
@@ -169,8 +157,7 @@ func TestParallelCRC32CChecksumFileNonExistent(t *testing.T) {
 		PartSize:    10,
 	})
 	if err == nil {
-		t.Errorf("Expected ParallelCRC32CChecksumFile to error on non-existent file but it did not")
-		t.FailNow()
+		t.Fatalf("Expected ParallelCRC32CChecksumFile to error on non-existent file but it did not")
 	}
 	if err.Error() != expectedMessage {
 		t.Errorf("Expected ParallelCRC32CChecksumFile on non-existent file to error with message \"%s\" but the error message was \"%s\"", expectedMessage, err.Error())
@@ -180,36 +167,31 @@ func TestParallelCRC32CChecksumFileNonExistent(t *testing.T) {
 func Benchmark(t *testing.B) {
 	tmp, err := ioutil.TempFile("/tmp", "crc-squared-")
 	if err != nil {
-		t.Errorf("Creating temporary file for parallel checksum errored with %s", err)
-		t.FailNow()
+		t.Fatalf("Creating temporary file for parallel checksum errored with %s", err)
 	}
 	defer os.Remove(tmp.Name())
 
 	bytes := dummyBytes(5000, 88)
 	n, err := tmp.Write(bytes)
 	if n != len(bytes) {
-		t.Errorf("Didn't write all sample bytes to file wanted %d, got %d", len(bytes), n)
-		t.FailNow()
+		t.Fatalf("Didn't write all sample bytes to file wanted %d, got %d", len(bytes), n)
 	}
 	if err != nil {
-		t.Errorf("Writing sample bytes to file errored with: %s", err)
-		t.FailNow()
+		t.Fatalf("Writing sample bytes to file errored with: %s", err)
 	}
 
 	expectedChecksum, err := CRC32CChecksum(bytes)
 	if err != nil {
-		t.Errorf("Computing in-memory checksum for comparison errored with: %s", err)
-		t.FailNow()
+		t.Fatalf("Computing in-memory checksum for comparison errored with: %s", err)
 	}
 
 	actualChecksum, err := ParallelCRC32CChecksumFile(tmp.Name(), ParallelChecksumFileOptions{
 		Concurrency: 10,
 		PartSize:    10,
 	})
-	t.FailNow()
+
 	if err != nil {
-		t.Errorf("ParallelCRC32CChecksum errored with %s", err)
-		t.FailNow()
+		t.Fatalf("ParallelCRC32CChecksum errored with %s", err)
 	}
 
 	if actualChecksum != expectedChecksum {
