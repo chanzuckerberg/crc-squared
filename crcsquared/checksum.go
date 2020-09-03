@@ -115,13 +115,6 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 	}
 
 	numParts := length / opts.PartSize
-	lastPartSize := length % opts.PartSize
-	if lastPartSize > 0 {
-		numParts++
-	} else {
-		lastPartSize = opts.PartSize
-	}
-
 	partRanges := make(chan partRange, numParts)
 	partChecksums := make(chan partChecksum, numParts)
 
