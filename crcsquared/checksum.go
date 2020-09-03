@@ -56,43 +56,41 @@ type partChecksumbufferNode struct {
 	Next *partChecksumbufferNode
 }
 
-// partChecksumBuffer holds a linked list of part checksums, ordered by the end of each part
+// partChecksumBuffer holds a linked list of part checksums
+// If part checksums are only inserted via AddFuse they are guaranteed
+// to be ordered by the end of each part and be maximally fused (all
+// adjacent part checksums are fused).
 type partChecksumBuffer struct {
 	Head *partChecksumbufferNode
 }
 
-// AddInOrder adds a part checksum to the buffer in order, ordered by the end of each part
-func (buff *partChecksumBuffer) AddInOrder(p partChecksum) {
+// AddFuse adds a part checksum to the linked list in order, ordered by the end of each part.
+// Then, starting from the part checksum prior to the new part checksum (or itself in case the new
+// part checksum is inserted at the head) fuses any adjacent checksums until the next checksum
+// is not adjacent. This guarantees that the linked list is in order and maximally fused provided
+// the list is only updated via this function.
+func (buff *partChecksumBuffer) AddFuse(p partChecksum) {
+	current := buff.Head
 	if buff.Head == nil || buff.Head.Self.End > p.End {
 		buff.Head = &partChecksumbufferNode{
 			Self: p,
 			Next: buff.Head,
 		}
-		return
-	}
-
-	current := buff.Head
-	for current.Next != nil && p.End > current.Next.Self.End {
-		current = current.Next
-	}
-
-	current.Next = &partChecksumbufferNode{
-		Self: p,
-		Next: current.Next,
-	}
-}
-
-// FuseAdjacentChecksums fuses all adjacent  part checksums in the buffer the resulting buffer will be maximally combined
-func (buff *partChecksumBuffer) FuseAdjacentChecksums() {
-	for current := buff.Head; current != nil && current.Next != nil; {
-		next := current.Next
-		if current.Self.End == current.Next.Self.Start {
-			current.Self.Checksum = crc32combine.CRC32Combine(crc32.Castagnoli, current.Self.Checksum, next.Self.Checksum, next.Self.End-next.Self.Start)
-			current.Self.End = next.Self.End
-			current.Next = next.Next
-		} else {
+		current = buff.Head
+	} else {
+		for current.Next != nil && p.End > current.Next.Self.End {
 			current = current.Next
 		}
+		current.Next = &partChecksumbufferNode{
+			Self: p,
+			Next: current.Next,
+		}
+	}
+
+	for current.Next != nil && current.Self.End == current.Next.Self.Start {
+		current.Self.Checksum = crc32combine.CRC32Combine(crc32.Castagnoli, current.Self.Checksum, current.Next.Self.Checksum, current.Next.Self.End-current.Next.Self.Start)
+		current.Self.End = current.Next.Self.End
+		current.Next = current.Next.Next
 	}
 }
 
@@ -149,8 +147,7 @@ func ParallelCRC32CChecksum(readerAt io.ReaderAt, length int64, opts ParallelChe
 	// the average case.
 	var buffer partChecksumBuffer
 	for i := int64(0); i < numParts; i++ {
-		buffer.AddInOrder(<-partChecksums)
-		buffer.FuseAdjacentChecksums()
+		buffer.AddFuse(<-partChecksums)
 	}
 
 	return buffer.FinalChecksum()
