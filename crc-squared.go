@@ -9,12 +9,16 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
+// to be set with `-ldflags "-X main.version="`
+var version = "unset"
+
 type options struct {
 	PartSize    int64 `short:"p" long:"part-size" description:"Part size in bytes" default:"1048576"`
 	Concurrency int   `short:"c" long:"concurrency" description:"Concurrency"`
 	Mmap        bool  `short:"m" long:"mmap" description:"Use mmap for downloads"`
+	Version     bool  `long:"version" description:"Print the current version"`
 	Positional  struct {
-		Filepath string `description:"file path to checksum" required:"true"`
+		Filepath string `description:"file path to checksum"`
 	} `positional-args:"yes"`
 }
 
@@ -27,6 +31,16 @@ func mainWork(args []string) (uint32, error) {
 		if strings.HasPrefix(err.Error(), "Usage") {
 			os.Exit(0)
 		}
+		os.Exit(2)
+	}
+
+	if opts.Version {
+		fmt.Println(version)
+		os.Exit(0)
+	} else if opts.Positional.Filepath == "" {
+		// Filepath is optional because it is not needed with --version
+		// Without --version it is required
+		os.Stderr.WriteString("the required argument `Filepath` was not provided\n")
 		os.Exit(2)
 	}
 
