@@ -22,7 +22,7 @@ archives:
     - completions/**/*
 
 brews:
-- description: "Copy large files to, from, and between s3 buckets with parallelism"
+- description: "Light speed crc32c checksums"
   tap:
     owner: chanzuckerberg
     name: homebrew-tap
@@ -39,7 +39,7 @@ nfpms:
     vendor: chanzuckerberg
     maintainer: Todd Morse <todd@morsecodist.io>
     homepage: "https://github.com/chanzuckerberg/crc-squared"
-    description: "Copy large files to, from, and between s3 buckets with parallelism"
+    description: "Light speed crc32c checksums"
     license: MIT
     formats:
       - deb
