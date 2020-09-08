@@ -80,6 +80,7 @@ Application Options:
   -p, --part-size=   Part size in bytes (default: 1024)
   -c, --concurrency= Concurrency
   -m, --mmap         Use mmap for downloads
+      --version      Print the current version
 
 Help Options:
   -h, --help         Show this help message
